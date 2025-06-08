@@ -24,7 +24,7 @@ A Java-based desktop application for extracting text from images (using Tess4J) 
 * **Java Development Kit (JDK) 11 or higher:** [Download JDK](https://www.oracle.com/java/technologies/downloads/)
 * **MySQL Server:** [Download MySQL Community Server](https://dev.mysql.com/downloads/mysql/)
 * **MySQL JDBC Driver (Connector/J):** [Download Connector/J](https://dev.mysql.com/downloads/connector/j/) (Place the `.jar` file in your project's `lib` directory).
-* **JFreeChart:** [Download JFreeChar-Library](https://sourceforge.net/projects/jfreechart/files/)
+* **JFreeChart:** [Download JFreeChart-Library](https://sourceforge.net/projects/jfreechart/files/)
 * **Tesseract OCR Engine:** [Install Tesseract](https://tesseract-ocr.github.io/tessdoc/Installation.html)
 * **Tess4J Library:** [Download Tess4J](https://sourceforge.net/projects/tess4j/files/) (Extract and copy all `.jar` files from its `lib` directory into your project's `lib` directory).
 
