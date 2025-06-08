@@ -5,14 +5,13 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.sql.Timestamp;
 
-public class CRUD{
-
+public class DataBase{
     private final String URL;
     private final String userPass;
     private final String userName;
     private Connection connection;
 
-    CRUD(String userName, String userPass){
+    DataBase(String userName, String userPass){
         this.userName = userName;
         this.userPass = userPass;
         this.URL = "jdbc:mysql://localhost:3306/mathematica";
@@ -34,15 +33,14 @@ public class CRUD{
         }
     }
 
-    public void CreateData(String ImagePath, String Question, boolean Graph_Plotted){
+    public void CreateData(String ImagePath, String Question){
         if(isConnected()){
             try{
-                String SQL = "INSERT INTO HISTORY (FilePath, Question, Graph_Plotted) VALUES(?, ?, ?)";
+                String SQL = "INSERT INTO HISTORY (FilePath, Question) VALUES(?, ?)";
                 PreparedStatement statement = connection.prepareStatement(SQL);
 
                 statement.setString(1, ImagePath);
                 statement.setString(2, Question);
-                statement.setBoolean(3, Graph_Plotted);
 
                 int rowsCreated = statement.executeUpdate();
 
@@ -63,11 +61,10 @@ public DefaultTableModel getHistoryTableModel() {
 
         if (!isConnected()) {
             System.err.println("Mathematica::Not-Connected");
-            // Return an empty model if not connected, so the UI doesn't crash
             return new DefaultTableModel(data, columnNames); 
         }
 
-        String SQL = "SELECT FilePath, Question, Graph_Plotted, Created FROM HISTORY ORDER BY Created";
+        String SQL = "SELECT FilePath, Question, Created FROM HISTORY ORDER BY Created";
 
         try (Statement stmt = connection.createStatement();
              ResultSet resultSet = stmt.executeQuery(SQL)) {
@@ -86,7 +83,6 @@ public DefaultTableModel getHistoryTableModel() {
                 for (int i = 1; i <= columnsNumber; i++) {
                     Object value = resultSet.getObject(i);
                     if (value instanceof Timestamp) {
-                        // Format the timestamp for better display
                         row.add(((Timestamp) value).toLocalDateTime().format(formatter));
                     } else {
                         row.add(value);

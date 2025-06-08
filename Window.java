@@ -3,35 +3,47 @@ import javax.swing.border.Border;
 import javax.swing.border.LineBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
 import java.util.Vector;
-import java.sql.Timestamp; // Ensure this is imported for CRUD operations
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
-public class MathematicaWindow extends JFrame {
+import org.jfree.chart.ChartFactory;
+import org.jfree.chart.ChartPanel;
+import org.jfree.chart.JFreeChart;
+import org.jfree.chart.plot.PlotOrientation;
+import org.jfree.data.xy.XYSeries;
+import org.jfree.data.xy.XYSeriesCollection;
+import net.objecthunter.exp4j.Expression;
+import net.objecthunter.exp4j.ExpressionBuilder;
+
+public class Window extends JFrame {
 
     private JTextField searchBar;
     private JTable historyTable;
     private JTextArea extractedTextArea;
-    private JPanel graphDisplayPanel; // Panel for graph display
-    private CRUD crudManager;
+    private JPanel graphDisplayPanel;
+    private DataBase crudManager;
+    private TextExtract textExtractor;
+    private JFreeChartGrapher jfreeChartGrapher;
 
-    // --- NEW Dark Theme Color Palette ---
-    private static final Color PRIMARY_ACCENT = new Color(70, 130, 180); // Deep blue
-    private static final Color BACKGROUND_DARK = new Color(40, 44, 52); // Main dark background
-    private static final Color BACKGROUND_LIGHT_DARKER = new Color(60, 65, 75); // Slightly lighter dark for contrast
-    private static final Color TEXT_LIGHT = new Color(220, 220, 220); // Light text for readability
-    private static final Color TEXT_ACCENT = new Color(170, 180, 200); // Muted light text for secondary info
-    private static final Color BORDER_DARK = new Color(80, 85, 95); // Subtle dark border
+    private static final Color PRIMARY_ACCENT = new Color(70, 130, 180);
+    private static final Color BACKGROUND_DARK = new Color(40, 44, 52);
+    private static final Color BACKGROUND_LIGHT_DARKER = new Color(60, 65, 75);
+    private static final Color TEXT_LIGHT = new Color(120, 180, 250);
+    private static final Color TEXT_ACCENT = new Color(170, 180, 200);
+    private static final Color BORDER_DARK = new Color(80, 85, 95);
 
-    private static final Color DELETE_BUTTON_COLOR = new Color(170, 50, 50); // Red for danger action
-    private static final Color DELETE_BUTTON_HOVER = new Color(200, 70, 70); // Brighter red on hover
+    private static final Color DELETE_BUTTON_COLOR = new Color(120, 180, 250);
+    private static final Color DELETE_BUTTON_HOVER = new Color(200, 70, 70);
 
-    public MathematicaWindow() {
+    public Window() {
         setTitle("Mathematica");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(1200, 800); // Increased size for new layout
+        setSize(1200, 800);
         setMinimumSize(new Dimension(1000, 700));
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
@@ -42,47 +54,39 @@ public class MathematicaWindow extends JFrame {
             System.err.println("Could not set look and feel: " + e.getMessage());
         }
 
-        // Initialize CRUD manager
-        try {
-            // !! IMPORTANT: CHANGE THESE CREDENTIALS to your MySQL username and password !!
-            crudManager = new CRUD("root", "dedakira");
-            if (!crudManager.isConnected()) {
-                JOptionPane.showMessageDialog(this,
-                        "Database connection failed. Please check your MySQL server and credentials in CRUD.java.",
-                        "Connection Error",
-                        JOptionPane.ERROR_MESSAGE);
-            }
-        } catch (Exception e) {
+        crudManager = new DataBase("root", "dedakira");
+        if (!crudManager.isConnected()) {
             JOptionPane.showMessageDialog(this,
-                    "Error initializing database connection: " + e.getMessage(),
-                    "Initialization Error",
+                    "Database connection failed.",
+                    "Connection Error",
                     JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
         }
+        
+        textExtractor = new TextExtract("");
+        jfreeChartGrapher = new JFreeChartGrapher();
 
-        getContentPane().setBackground(BACKGROUND_DARK); // Set overall frame background to dark
+        getContentPane().setBackground(BACKGROUND_DARK);
 
         add(createTopPanel(), BorderLayout.NORTH);
 
-        // Main split pane: Input/Display Area (left) vs. History Sidebar (right)
         JSplitPane mainSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
-                                                  createInputAndDisplayArea(), createHistoryPanel());
-        mainSplitPane.setDividerLocation(800); // Initial width for input/display area
+                                                   createInputAndDisplayArea(), createHistoryPanel());
+        mainSplitPane.setDividerLocation(800);
         mainSplitPane.setOneTouchExpandable(true);
-        mainSplitPane.setBorder(null); // Remove default split pane border
-        mainSplitPane.setBackground(BACKGROUND_DARK); // Set background for split pane itself
+        mainSplitPane.setBorder(null);
+        mainSplitPane.setBackground(BACKGROUND_DARK);
 
         add(mainSplitPane, BorderLayout.CENTER);
 
-        loadHistoryData(); // Load history on startup
+        loadHistoryData();
     }
 
     private JPanel createTopPanel() {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 10)); // Center content
-        panel.setBackground(BACKGROUND_LIGHT_DARKER); // Slightly lighter dark background for header
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 10));
+        panel.setBackground(BACKGROUND_LIGHT_DARKER);
         panel.setBorder(BorderFactory.createEmptyBorder(15, 30, 15, 30));
 
-        JLabel titleLabel = new JLabel("MATHEMATICA", SwingConstants.CENTER) {
+        JLabel titleLabel = new JLabel("Mathematica", SwingConstants.CENTER) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2d = (Graphics2D) g.create();
@@ -92,10 +96,10 @@ public class MathematicaWindow extends JFrame {
                 int x = (getWidth() - fm.stringWidth(text)) / 2;
                 int y = (getHeight() + fm.getAscent()) / 2 - fm.getDescent();
 
-                g2d.setColor(TEXT_LIGHT.darker().darker()); // Darker text for subtle shadow
+                g2d.setColor(TEXT_LIGHT.darker().darker());
                 g2d.drawString(text, x + 2, y + 2);
 
-                g2d.setColor(TEXT_LIGHT); // Light text for title
+                g2d.setColor(TEXT_LIGHT);
                 g2d.drawString(text, x, y);
                 g2d.dispose();
             }
@@ -107,62 +111,53 @@ public class MathematicaWindow extends JFrame {
     }
 
     private JComponent createInputAndDisplayArea() {
-        // This will be a JSplitPane dividing into input/actions (left) and display areas (right)
         JSplitPane centralSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT,
-                                                     createInputPanel(), createDisplayPanels());
-        centralSplitPane.setDividerLocation(350); // Width for input panel
+                                                      createInputPanel(), createDisplayPanels());
+        centralSplitPane.setDividerLocation(350);
         centralSplitPane.setOneTouchExpandable(true);
         centralSplitPane.setBorder(null);
-        centralSplitPane.setBackground(BACKGROUND_DARK); // Set background for split pane itself
+        centralSplitPane.setBackground(BACKGROUND_DARK);
 
         return centralSplitPane;
     }
 
     private JPanel createInputPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new GridBagLayout()); // Use GridBagLayout for flexible centering
+        JPanel panel = new JPanel(new GridBagLayout());
         panel.setBackground(BACKGROUND_DARK);
-        panel.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30)); // Padding
+        panel.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
 
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(15, 10, 15, 10); // Padding around components
-        gbc.fill = GridBagConstraints.HORIZONTAL; // Fill horizontally
-        gbc.gridwidth = 2; // Span across two conceptual columns for layout
+        gbc.insets = new Insets(15, 10, 15, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridwidth = 2;
 
-        // Search Bar
-        searchBar = new JTextField(30); // Adjusted size
+        searchBar = new JTextField(30);
         searchBar.setFont(new Font("Segoe UI", Font.PLAIN, 18));
         searchBar.setForeground(TEXT_LIGHT);
-        searchBar.setBackground(BACKGROUND_LIGHT_DARKER); // Darker background for input
+        searchBar.setBackground(BACKGROUND_LIGHT_DARKER);
         searchBar.setBorder(BorderFactory.createCompoundBorder(
-            new LineBorder(BORDER_DARK, 1), // Dark border
-            BorderFactory.createEmptyBorder(12, 15, 12, 15) // Inner padding
+            new LineBorder(BORDER_DARK, 1),
+            BorderFactory.createEmptyBorder(12, 15, 12, 15)
         ));
         searchBar.setCaretColor(PRIMARY_ACCENT);
-        // Optional: Apply rounded corners if using a custom UI look that supports it
-        // searchBar.putClientProperty("JTextField.roundRect", true);
         searchBar.setToolTipText("Type your question or expression here");
-        searchBar.addActionListener(e -> performSearch()); // Enter key performs search
+        searchBar.addActionListener(e -> performSearch());
 
         gbc.gridx = 0;
         gbc.gridy = 0;
-        gbc.weightx = 1.0; // Expand horizontally
+        gbc.weightx = 1.0;
         panel.add(searchBar, gbc);
 
-        // Buttons Panel (for Search and Upload)
-        JPanel buttonRowPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0)); // Flow layout for buttons
-        buttonRowPanel.setOpaque(false); // Make it transparent
+        JPanel buttonRowPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 0));
+        buttonRowPanel.setOpaque(false);
 
-        // Search Button
         JButton searchBtn = new JButton("Search");
         searchBtn.setFont(new Font("Segoe UI", Font.BOLD, 16));
         searchBtn.setForeground(TEXT_LIGHT);
         searchBtn.setBackground(PRIMARY_ACCENT);
         searchBtn.setFocusPainted(false);
-        searchBtn.setBorder(BorderFactory.createEmptyBorder(10, 25, 10, 25)); // Padding
+        searchBtn.setBorder(BorderFactory.createEmptyBorder(10, 25, 10, 25));
         searchBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        // Optional: Apply rounded corners if using a custom UI look that supports it
-        // searchBtn.putClientProperty("JButton.roundRect", true);
         searchBtn.setToolTipText("Initiate Search");
         searchBtn.addActionListener(e -> performSearch());
         searchBtn.addMouseListener(new MouseAdapter() {
@@ -171,16 +166,13 @@ public class MathematicaWindow extends JFrame {
         });
         buttonRowPanel.add(searchBtn);
 
-        // Upload Image Button
         JButton uploadBtn = new JButton("Upload Image");
         uploadBtn.setFont(new Font("Segoe UI", Font.BOLD, 16));
         uploadBtn.setForeground(TEXT_LIGHT);
-        uploadBtn.setBackground(BACKGROUND_LIGHT_DARKER.darker()); // Darker than panel for subtle contrast
+        uploadBtn.setBackground(BACKGROUND_LIGHT_DARKER.darker());
         uploadBtn.setFocusPainted(false);
-        uploadBtn.setBorder(BorderFactory.createEmptyBorder(10, 25, 10, 25)); // Padding
+        uploadBtn.setBorder(BorderFactory.createEmptyBorder(10, 25, 10, 25));
         uploadBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        // Optional: Apply rounded corners if using a custom UI look that supports it
-        // uploadBtn.putClientProperty("JButton.roundRect", true);
         uploadBtn.setToolTipText("Upload images from your system");
         uploadBtn.addActionListener(e -> openFileChooser());
         uploadBtn.addMouseListener(new MouseAdapter() {
@@ -191,32 +183,28 @@ public class MathematicaWindow extends JFrame {
 
         gbc.gridx = 0;
         gbc.gridy = 1;
-        gbc.weighty = 0; // Don't expand
-        gbc.fill = GridBagConstraints.NONE; // Don't fill
+        gbc.weighty = 0;
+        gbc.fill = GridBagConstraints.NONE;
         panel.add(buttonRowPanel, gbc);
 
-        // Placeholder for future results (if any other than extracted text/graph)
-        // For now, it will just fill space
         JPanel emptyFiller = new JPanel();
-        emptyFiller.setOpaque(false); // Transparent
+        emptyFiller.setOpaque(false);
         gbc.gridx = 0;
         gbc.gridy = 2;
-        gbc.weighty = 1.0; // Take up remaining vertical space
+        gbc.weighty = 1.0;
         gbc.fill = GridBagConstraints.BOTH;
         panel.add(emptyFiller, gbc);
-
 
         return panel;
     }
 
     private JComponent createDisplayPanels() {
-        // This will be a JSplitPane dividing into Extracted Text (top) and Graph Display (bottom)
         JSplitPane displaySplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
                                                       createExtractedTextPanel(), createGraphDisplayPanel());
-        displaySplitPane.setDividerLocation(0.5); // 50/50 split initially
+        displaySplitPane.setDividerLocation(0.5);
         displaySplitPane.setOneTouchExpandable(true);
         displaySplitPane.setBorder(null);
-        displaySplitPane.setBackground(BACKGROUND_DARK); // Set background for split pane itself
+        displaySplitPane.setBackground(BACKGROUND_DARK);
 
         return displaySplitPane;
     }
@@ -233,30 +221,50 @@ public class MathematicaWindow extends JFrame {
         panel.add(title, BorderLayout.NORTH);
 
         extractedTextArea = new JTextArea();
-        extractedTextArea.setEditable(false); // Make it read-only
-        extractedTextArea.setFont(new Font("Consolas", Font.PLAIN, 14)); // Monospaced font for code/text
+        extractedTextArea.setEditable(true);
+        extractedTextArea.setFont(new Font("Consolas", Font.PLAIN, 14));
         extractedTextArea.setForeground(TEXT_LIGHT);
-        extractedTextArea.setBackground(BACKGROUND_LIGHT_DARKER); // Slightly lighter dark background
-        extractedTextArea.setCaretColor(TEXT_ACCENT); // Cursor color
+        extractedTextArea.setBackground(BACKGROUND_LIGHT_DARKER);
+        extractedTextArea.setCaretColor(PRIMARY_ACCENT);
         extractedTextArea.setBorder(BorderFactory.createCompoundBorder(
             new LineBorder(BORDER_DARK, 1),
             BorderFactory.createEmptyBorder(10, 10, 10, 10)
         ));
         extractedTextArea.setLineWrap(true);
         extractedTextArea.setWrapStyleWord(true);
-        extractedTextArea.setText("Extracted text from images will appear here.");
+        extractedTextArea.setText("Extracted text from images will appear here. You can edit it before plotting.");
 
         JScrollPane scrollPane = new JScrollPane(extractedTextArea);
-        scrollPane.setBorder(null); // No extra border on scroll pane
-        scrollPane.getViewport().setBackground(BACKGROUND_LIGHT_DARKER); // Ensure viewport matches text area
+        scrollPane.setBorder(null);
+        scrollPane.getViewport().setBackground(BACKGROUND_LIGHT_DARKER);
         panel.add(scrollPane, BorderLayout.CENTER);
+
+        JButton plotExtractedTextBtn = new JButton("Plot from Extracted Text");
+        plotExtractedTextBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        plotExtractedTextBtn.setForeground(TEXT_LIGHT);
+        plotExtractedTextBtn.setBackground(PRIMARY_ACCENT.darker());
+        plotExtractedTextBtn.setFocusPainted(false);
+        plotExtractedTextBtn.setBorder(BorderFactory.createEmptyBorder(8, 20, 8, 20));
+        plotExtractedTextBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        plotExtractedTextBtn.addActionListener(e -> plotExtractedText());
+        plotExtractedTextBtn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { plotExtractedTextBtn.setBackground(PRIMARY_ACCENT.darker().darker()); }
+            public void mouseExited(MouseEvent e) { plotExtractedTextBtn.setBackground(PRIMARY_ACCENT.darker()); }
+        });
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonPanel.setOpaque(false);
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+        buttonPanel.add(plotExtractedTextBtn);
+
+        panel.add(buttonPanel, BorderLayout.SOUTH);
 
         return panel;
     }
 
     private JPanel createGraphDisplayPanel() {
         graphDisplayPanel = new JPanel(new BorderLayout());
-        graphDisplayPanel.setBackground(BACKGROUND_DARK); // Dark background
+        graphDisplayPanel.setBackground(BACKGROUND_DARK);
         graphDisplayPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
         JLabel title = new JLabel("Graph Display", SwingConstants.LEFT);
@@ -266,12 +274,12 @@ public class MathematicaWindow extends JFrame {
         graphDisplayPanel.add(title, BorderLayout.NORTH);
 
         JPanel placeholderContent = new JPanel(new GridBagLayout());
-        placeholderContent.setBackground(BACKGROUND_LIGHT_DARKER); // Background for the placeholder
-        placeholderContent.setBorder(new LineBorder(BORDER_DARK, 1)); // Subtle border
+        placeholderContent.setBackground(BACKGROUND_LIGHT_DARKER);
+        placeholderContent.setBorder(new LineBorder(BORDER_DARK, 1));
         JLabel placeholderLabel = new JLabel("Graph Would Be Shown Here", SwingConstants.CENTER);
         placeholderLabel.setFont(new Font("Segoe UI", Font.ITALIC, 20));
         placeholderLabel.setForeground(TEXT_ACCENT);
-        placeholderContent.add(placeholderLabel, new GridBagConstraints()); // Center the label
+        placeholderContent.add(placeholderLabel, new GridBagConstraints());
 
         graphDisplayPanel.add(placeholderContent, BorderLayout.CENTER);
 
@@ -280,7 +288,7 @@ public class MathematicaWindow extends JFrame {
 
     private JPanel createHistoryPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(BACKGROUND_LIGHT_DARKER); // Slightly lighter dark background for history
+        panel.setBackground(BACKGROUND_LIGHT_DARKER);
         panel.setBorder(BorderFactory.createEmptyBorder(20, 15, 15, 15));
 
         JLabel historyTitle = new JLabel("History", SwingConstants.CENTER);
@@ -294,41 +302,35 @@ public class MathematicaWindow extends JFrame {
         historyTable.setRowHeight(35);
         historyTable.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         historyTable.setForeground(TEXT_LIGHT);
-        historyTable.setBackground(BACKGROUND_DARK); // Dark background for table rows
-        historyTable.setSelectionBackground(PRIMARY_ACCENT.darker()); // Darker accent for selection
+        historyTable.setBackground(BACKGROUND_DARK);
+        historyTable.setSelectionBackground(PRIMARY_ACCENT.darker());
         historyTable.setSelectionForeground(Color.WHITE);
-        historyTable.setGridColor(BORDER_DARK); // Darker grid lines
+        historyTable.setGridColor(BORDER_DARK);
         historyTable.setShowVerticalLines(false);
         historyTable.setShowHorizontalLines(true);
 
-        // Table Header Styling
         historyTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 14));
-        historyTable.getTableHeader().setBackground(BACKGROUND_LIGHT_DARKER.darker()); // Even darker header
+        historyTable.getTableHeader().setBackground(BACKGROUND_LIGHT_DARKER.darker());
         historyTable.getTableHeader().setForeground(TEXT_LIGHT);
         historyTable.getTableHeader().setReorderingAllowed(false);
         historyTable.getTableHeader().setPreferredSize(new Dimension(1, 40));
 
-        // Center align table content
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
-        // Apply custom renderer to all columns
         historyTable.setDefaultRenderer(Object.class, centerRenderer);
 
         JScrollPane scrollPane = new JScrollPane(historyTable);
-        scrollPane.setBorder(new LineBorder(BORDER_DARK, 1)); // Dark subtle border
-        scrollPane.getViewport().setBackground(BACKGROUND_DARK); // Ensure viewport matches table rows
+        scrollPane.setBorder(new LineBorder(BORDER_DARK, 1));
+        scrollPane.getViewport().setBackground(BACKGROUND_DARK);
         panel.add(scrollPane, BorderLayout.CENTER);
 
-        // Delete History Button
         JButton deleteHistoryBtn = new JButton("Delete Old History (15 Days)");
         deleteHistoryBtn.setFont(new Font("Segoe UI", Font.BOLD, 15));
         deleteHistoryBtn.setForeground(TEXT_LIGHT);
-        deleteHistoryBtn.setBackground(DELETE_BUTTON_COLOR); // Red color
+        deleteHistoryBtn.setBackground(DELETE_BUTTON_COLOR);
         deleteHistoryBtn.setFocusPainted(false);
         deleteHistoryBtn.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
         deleteHistoryBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        // Optional: Apply rounded corners if using a custom UI look that supports it
-        // deleteHistoryBtn.putClientProperty("JButton.roundRect", true);
         deleteHistoryBtn.setToolTipText("Permanently delete history entries older than 15 days");
         deleteHistoryBtn.addActionListener(e -> {
             if (crudManager != null && crudManager.isConnected()) {
@@ -361,29 +363,118 @@ public class MathematicaWindow extends JFrame {
         return panel;
     }
 
+    private boolean attemptPlotEquation(String equationToParse, String originalQuery) {
+        String plotTitle = "Plot of " + originalQuery;
+        String processedEquation = equationToParse;
+        boolean graphWasPlotted = false;
+
+        if (processedEquation.toLowerCase().startsWith("y =")) {
+            processedEquation = processedEquation.substring(processedEquation.toLowerCase().indexOf("y =") + "y =".length()).trim();
+        }
+
+        try {
+            JPanel chartPanel = jfreeChartGrapher.createChartPanelForEquation(processedEquation, plotTitle);
+
+            if (chartPanel != null) {
+                displayCustomPanel(chartPanel);
+                JOptionPane.showMessageDialog(this, "Graph for '" + originalQuery + "' displayed.", "Plot Success", JOptionPane.INFORMATION_MESSAGE);
+                graphWasPlotted = true;
+            } else {
+                JOptionPane.showMessageDialog(this,
+                    "Could not plot equation: '" + originalQuery + "'.\n" +
+                    "Please ensure it's a valid 'y = f(x)' format (e.g., 'x^2', '8*x - 9', '(8 - 2*x) / 3').",
+                    "Plotting Error", JOptionPane.WARNING_MESSAGE);
+                clearGraphDisplay();
+                graphWasPlotted = false;
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this,
+                "An unexpected error occurred while plotting '" + originalQuery + "': " + e.getMessage(),
+                "Plotting Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+            clearGraphDisplay();
+            graphWasPlotted = false;
+        }
+        return graphWasPlotted;
+    }
+
+    private void displayCustomPanel(JPanel panel) {
+        graphDisplayPanel.removeAll();
+        graphDisplayPanel.setLayout(new BorderLayout());
+
+        if (panel != null) {
+            graphDisplayPanel.add(panel, BorderLayout.CENTER);
+        } else {
+            JLabel errorLabel = new JLabel("Graph panel could not be generated.", SwingConstants.CENTER);
+            errorLabel.setForeground(TEXT_ACCENT);
+            errorLabel.setFont(new Font("Segoe UI", Font.ITALIC, 16));
+            graphDisplayPanel.add(errorLabel, BorderLayout.CENTER);
+        }
+        graphDisplayPanel.revalidate();
+        graphDisplayPanel.repaint();
+    }
+
+    private void clearGraphDisplay() {
+        graphDisplayPanel.removeAll();
+        graphDisplayPanel.setLayout(new BorderLayout());
+        
+        JPanel placeholderContent = new JPanel(new GridBagLayout());
+        placeholderContent.setBackground(BACKGROUND_LIGHT_DARKER);
+        placeholderContent.setBorder(new LineBorder(BORDER_DARK, 1));
+        
+        JLabel placeholderLabel = new JLabel("Graph Would Be Shown Here", SwingConstants.CENTER);
+        placeholderLabel.setFont(new Font("Segoe UI", Font.ITALIC, 20));
+        placeholderLabel.setForeground(TEXT_ACCENT);
+        placeholderContent.add(placeholderLabel, new GridBagConstraints());
+        
+        graphDisplayPanel.add(placeholderContent, BorderLayout.CENTER);
+        
+        graphDisplayPanel.revalidate();
+        graphDisplayPanel.repaint();
+    }
+
+    private void plotExtractedText() {
+        String textToPlot = extractedTextArea.getText().trim();
+        if (!textToPlot.isEmpty() &&
+            !textToPlot.equalsIgnoreCase("Extracted text from images will appear here. You can edit it before plotting.") &&
+            !textToPlot.startsWith("Error extracting text:") &&
+            !textToPlot.equalsIgnoreCase("File::Error")) {
+            
+            attemptPlotEquation(textToPlot, "Edited/Extracted: " + textToPlot);
+        } else {
+            JOptionPane.showMessageDialog(this,
+                "The extracted text area is empty or contains an error message. Please enter a valid equation to plot.",
+                "Plotting Error", JOptionPane.WARNING_MESSAGE);
+            clearGraphDisplay();
+        }
+    }
+
     private void performSearch() {
         String query = searchBar.getText().trim();
         if (!query.isEmpty()) {
             if (crudManager != null && crudManager.isConnected()) {
-                // Assuming "N/A (text query)" is the FilePath for text searches
-                crudManager.CreateData("N/A (text query)", query, false);
+                // No longer need to store graphPlotted status here as it's not in DB
+                attemptPlotEquation(query, query); // Still attempt to plot for user experience
+
+                // Changed to call CreateData without the graphPlotted boolean
+                crudManager.CreateData("N/A (text query)", query); 
+                
                 JOptionPane.showMessageDialog(this, "Query submitted: \"" + query + "\"\n(Saved to database history)", "Search Action", JOptionPane.INFORMATION_MESSAGE);
                 loadHistoryData();
-                // Clear extracted text and graph placeholder when a new text search is done
-                extractedTextArea.setText("Extracted text from images will appear here.");
-                // Potentially clear or reset graph display if applicable
+                extractedTextArea.setText("Extracted text from images will appear here. You can edit it before plotting.");
             } else {
-                 JOptionPane.showMessageDialog(this, "Database not connected. Cannot save search query.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Database not connected. Cannot save search query.", "Error", JOptionPane.ERROR_MESSAGE);
+                clearGraphDisplay();
             }
-            searchBar.setText(""); // Clear the search bar
+            searchBar.setText("");
         } else {
-            JOptionPane.showMessageDialog(this, "Please enter a query to search.", "Empty Search", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Please enter a query to search or plot.", "Empty Input", JOptionPane.WARNING_MESSAGE);
         }
     }
 
     private void openFileChooser() {
         JFileChooser fc = new JFileChooser();
-        fc.setMultiSelectionEnabled(false); // Only allow single image upload for now
+        fc.setMultiSelectionEnabled(false);
         fc.setFileFilter(new javax.swing.filechooser.FileFilter() {
             @Override
             public boolean accept(File f) {
@@ -403,18 +494,24 @@ public class MathematicaWindow extends JFrame {
             if (selectedFile != null) {
                 String imagePath = selectedFile.getAbsolutePath();
                 
-                // --- Integrate TextExtract here ---
-                // Create an instance of TextExtract and perform the OCR
-                TextExtract textExtractor = new TextExtract(imagePath);
-                String extractedText = textExtractor.getExtractedText(); // Get the result
+                String extractedText = textExtractor.perform(imagePath);
 
-                extractedTextArea.setText(extractedText); // Display extracted text in the UI
+                extractedTextArea.setText(extractedText);
+
+                // No longer store graphPlotted boolean here directly for DB saving
+                // Still call attemptPlotEquation to display the graph to the user
+                if (!extractedText.trim().isEmpty() && !extractedText.trim().equalsIgnoreCase("File::Error")) {
+                    attemptPlotEquation(extractedText.trim(), extractedText.trim());
+                } else {
+                    JOptionPane.showMessageDialog(this, "No valid text extracted from image to plot.", "Information", JOptionPane.INFORMATION_MESSAGE);
+                    clearGraphDisplay();
+                }
 
                 if (crudManager != null && crudManager.isConnected()) {
-                    // Save the image path and the extracted text to history
-                    crudManager.CreateData(imagePath, extractedText, false);
+                    // Changed to call CreateData without the graphPlotted boolean
+                    crudManager.CreateData(imagePath, extractedText);
                     JOptionPane.showMessageDialog(this, "Image selected and text extracted.\nSaved to history.", "Image Upload", JOptionPane.INFORMATION_MESSAGE);
-                    loadHistoryData(); // Refresh history table
+                    loadHistoryData();
                 } else {
                     JOptionPane.showMessageDialog(this, "Database not connected. Image uploaded and text extracted, but not saved to history.", "Warning", JOptionPane.WARNING_MESSAGE);
                 }
@@ -427,35 +524,88 @@ public class MathematicaWindow extends JFrame {
             DefaultTableModel model = crudManager.getHistoryTableModel();
             historyTable.setModel(model);
 
-            // Adjust column widths for better display in the sidebar
-            if (model.getColumnCount() > 0) {
-                // Example adjustments, you might need to fine-tune these
-                historyTable.getColumnModel().getColumn(0).setPreferredWidth(80);  // File Path (can be shrunk if paths are long)
-                historyTable.getColumnModel().getColumn(1).setPreferredWidth(180); // Question/Extracted Text
-                historyTable.getColumnModel().getColumn(2).setPreferredWidth(40);  // Graph Plotted (checkbox/boolean)
-                historyTable.getColumnModel().getColumn(3).setPreferredWidth(120); // Date/Time
+            // Adjusted column count check and removed the Graph_Plotted column's width setting
+            if (model.getColumnCount() >= 3) { // Assuming 3 columns now: ID, Image Path/Query, Extracted Text/Result
+                historyTable.getColumnModel().getColumn(0).setPreferredWidth(80);
+                historyTable.getColumnModel().getColumn(1).setPreferredWidth(180);
+                historyTable.getColumnModel().getColumn(2).setPreferredWidth(40);
+                // Removed: historyTable.getColumnModel().getColumn(3).setPreferredWidth(120);
             }
 
-            // Ensure header renderer is set for center alignment
             DefaultTableCellRenderer headerRenderer = (DefaultTableCellRenderer) historyTable.getTableHeader().getDefaultRenderer();
             headerRenderer.setHorizontalAlignment(SwingConstants.CENTER);
 
-            // This sets the default renderer for all Object columns to center-align
             DefaultTableCellRenderer cellRenderer = new DefaultTableCellRenderer();
             cellRenderer.setHorizontalAlignment(SwingConstants.CENTER);
             historyTable.setDefaultRenderer(Object.class, cellRenderer);
 
-
             System.out.println("Database history data loaded into UI.");
         } else {
-            System.err.println("Database not connected or CRUD manager not initialized. Cannot load history data.");
-            // Clear the table if no connection
+            System.err.println("Database not connected or manager not initialized. Cannot load history data.");
             historyTable.setModel(new DefaultTableModel(new Vector<>(), new Vector<>()));
         }
     }
 
-    // --- Custom Icon classes (These are no longer used directly by buttons
-    //     as they are text-based now, but kept in case you want to use icons later) ---
+    static class JFreeChartGrapher {
+
+        public JPanel createChartPanelForEquation(String equation, String title) {
+            XYSeries series = new XYSeries("y = " + equation);
+            try {
+                Expression expression = new ExpressionBuilder(equation)
+                        .variables("x")
+                        .build();
+
+                for (double x = -10; x <= 10; x += 0.1) {
+                    try {
+                        expression.setVariable("x", x);
+                        double y = expression.evaluate();
+                        if (Double.isFinite(y)) {
+                            series.add(x, y);
+                        }
+                    } catch (IllegalArgumentException e) {
+                        // This catches cases like log(0), sqrt(-ve) which result in NaN/Infinity
+                        // and are properly handled by isFinite() check for exclusion.
+                        // Can be left empty if you don't need specific error logging for each point.
+                    }
+                }
+
+                XYSeriesCollection dataset = new XYSeriesCollection();
+                dataset.addSeries(series);
+
+                JFreeChart chart = ChartFactory.createXYLineChart(
+                    title,
+                    "X",
+                    "Y",
+                    dataset,
+                    PlotOrientation.VERTICAL,
+                    true,
+                    true,
+                    false
+                );
+
+                chart.setBackgroundPaint(new Color(60, 65, 75));
+                chart.getTitle().setPaint(new Color(220, 220, 220));
+                chart.getXYPlot().setBackgroundPaint(new Color(40, 44, 52));
+                chart.getXYPlot().setDomainGridlinePaint(new Color(80, 85, 95));
+                chart.getXYPlot().setRangeGridlinePaint(new Color(80, 85, 95));
+
+                chart.getXYPlot().getDomainAxis().setLabelPaint(new Color(170, 180, 200));
+                chart.getXYPlot().getDomainAxis().setTickLabelPaint(new Color(170, 180, 200));
+                chart.getXYPlot().getRangeAxis().setLabelPaint(new Color(170, 180, 200));
+                chart.getXYPlot().getRangeAxis().setTickLabelPaint(new Color(170, 180, 200));
+                
+                chart.getLegend().setItemPaint(new Color(220, 220, 220));
+
+                return new ChartPanel(chart);
+
+            } catch (Exception e) {
+                System.err.println("Error creating chart for equation '" + equation + "': " + e.getMessage());
+                e.printStackTrace();
+                return null;
+            }
+        }
+    }
+
     static class SearchIcon implements Icon {
         private final int size;
         private final Color color;
@@ -520,7 +670,6 @@ public class MathematicaWindow extends JFrame {
     }
 
     public static void main(String[] args) {
-        // Apply System Look and Feel early for better UI integration
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception e) {
@@ -528,7 +677,7 @@ public class MathematicaWindow extends JFrame {
         }
 
         SwingUtilities.invokeLater(() -> {
-            MathematicaWindow window = new MathematicaWindow();
+            Window window = new Window();
             window.setVisible(true);
         });
     }
