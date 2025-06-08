@@ -60,7 +60,7 @@ A Java-based desktop application for extracting text from images (using Tess4J) 
 2.  **Create `lib` Directory:** If it doesn't exist, create a `lib` directory inside your project's root folder (`MathematicaConverter/lib`).
 3.  **Place JARs:**
     * Place the `mysql-connector-j-<version>.jar` file into the `lib` directory.
-    * Place the 'jfreechart-<version>.jar' file into the 'lib' directory.
+    * Place the `jfreechart-<version>.jar` file into the `lib` directory.
     * Place all `.jar` files from the downloaded Tess4J `lib` folder into your project's `lib` directory.
 4.  **Tessdata Path:** In `TextExtract.java`, **ensure the `tesseract.setDatapath()` method points to your actual Tesseract `tessdata` directory** (e.g., `C:\\Tess4J\\tessdata`):
     ```java
