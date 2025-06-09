@@ -1,4 +1,4 @@
-# Mathematica Converter
+# Mathematica
 
 A Java-based desktop application for extracting text from images (using Tess4J) and managing mathematical queries and solutions in a database.
 
